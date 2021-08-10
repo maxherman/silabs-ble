@@ -22,19 +22,9 @@
 #include "app.h"
 #include "sl_simple_led_instances.h"
 #include "sl_simple_button_instances.h"
-#include "nvm3.h"
-#include "nvm3_hal_flash.h"
-#include "spidrv.h"
-#include "sl_spidrv_instances.h"
-
-
-#define SPI_HANDLE    sl_spidrv_exp_handle
-static volatile bool transfer_complete = true;
 
 // The advertising set handle allocated from Bluetooth stack.
 static uint8_t advertising_set_handle = 0xff;
-
-extern nvm3_Handle_t *nvm3_defaultHandle;
 static uint8_t customAdv[] = { 0x02, 0x01, 0x06, // Len=2 Status Value(0x06)
     0x05, 0xFF, //Length(5), Manufacturer-Specific Data (type 0xFF)
     0xFF, 0x02, // SiLab Manufactures Code
@@ -42,70 +32,7 @@ static uint8_t customAdv[] = { 0x02, 0x01, 0x06, // Len=2 Status Value(0x06)
     0x03, 0x08, 0x55, 0x32}; // Tag Name U2
 
 
-#define QUUPPA_TAG_ID		0x66, 0x55, 0x44, 0x33, 0x22, 0x11
-#define QUUPPA_DF_PATTERN	0x67, 0xf7, 0xdb, 0x34, 0xc4, 0x03, 0x8e, 0x5c, 0x0b, 0xaa, 0x97, 0x30, 0x56, 0xe6
-
-// Quuppa Direction Finding (DF) Packet
-static uint8_t quuppaDFPacket[] = {
-  0x02,           // AD Len=2           0
-  0x01,           // AD Type Flags      1
-  0x02,           // Flag Data          2
-  0x1b,           // AD data Length     3
-  0xff,           // AD Type            4
-  0xc7,           // Company ID LSB     5
-  0x00,           // Company ID MSB     6
-  0x01,           // Quuppa Packet ID   7
-  0x21,           // Quuppa Device Type 8
-  0x19,           // Header, Carries information of Tag’s TX rate, TX power and ID type     9
-  QUUPPA_TAG_ID,  // Quuppa Tag ID      10 11 12 13 14 15
-  0x38,           // CRC-8              16
-  QUUPPA_DF_PATTERN // Quuppa DF pattern
-};
-
-#define QUUPPA_CRC_INDEX                16
-#define QUUPPA_CRC_START_INDEX          8
-#define QUUPPA_CRC_END_INDEX            16
-#define QUUPPA_DATA_START_INDEX         19
-
-// Quuppa Data Packet
-static uint8_t quuppaDataPacket[] = {
-    0x02,         // AD Len=2           0
-    0x01,         // AD Type Flags      1
-    0x02,         // Flag Data          2
-    0x1b,         // AD data Length     3
-    0xff,         // AD Type            4
-    0xc7,         // Company ID LSB     5
-    0x00,         // Company ID MSB     6
-    0xF0,         // Quuppa Packet ID   7
-    0x19,         // Header, Carries information of Tag’s TX rate, TX power and ID type     8
-    QUUPPA_TAG_ID,// Quuppa Tag ID      9 10 11 12 13 14
-    0xFF,         // Developer specific data    15
-    0x01,         // Developer ID (LSB)         16
-    0x01,         // Developer ID (MSB)         17
-    0x00, 0x01, 0x02, 0x03, // Payload          18 ... 
-    0x04, 0x05, 0x06, 0x07,
-    0x08, 0x09, 0x0A, 0x0B,
-    0x0C
-  };
-
-// Uncomment this to build Tag with Quuppa advertisement
-// #define QUUPPA_MODE
-
-// Number of active connections.
-static uint8_t connection_count = 0;
-
-uint8_t g_lab4Connection;
-
-
-// These variables need to be added and are used for the connection handle
-// and the notification parameters to send Button data to the mobile app
-uint8_t notification_data[1] = {0};
-uint16_t notification_len = 0;
-uint8_t notifyEnabled = false;
-
-extern sl_simple_button_context_t simple_btn0_context;
-
-
+/*
 #define SCAN_INTERVAL                 1600   // * 0.625ms = 1 sec
 #define SCAN_WINDOW                   1600   // * 0.625ms = 1 sec
 #define SCAN_PASSIVE                  0
@@ -117,7 +44,7 @@ extern sl_simple_button_context_t simple_btn0_context;
 #define CONN_TIMEOUT                  100  //1000ms
 #define CONN_MIN_CE_LENGTH            0
 #define CONN_MAX_CE_LENGTH            0xffff
-
+*/
 
 void sl_button_on_change(const sl_button_t *handle)
 {
@@ -143,44 +70,7 @@ void print_data(uint8array *arr)
  *********************   LOCAL FUNCTION PROTOTYPES   ***************************
  ******************************************************************************/
 
-// Callback fired when data is transmitted
-void transfer_callback(SPIDRV_HandleData_t *handle,
-                       Ecode_t transfer_status,
-                       int items_transferred)
-{
-  (void)&handle;
-  (void)items_transferred;
 
-  // Post semaphore to signal to application
-  // task that transfer is successful
-  if (transfer_status == ECODE_EMDRV_SPIDRV_OK) {
-    transfer_complete = true;
-  }
-}
-
-
-/**************************************************************************//**
- * Quuppa CRC-8
- *****************************************************************************/
-uint8_t crc8(uint8_t *data, uint8_t len)
-{
-    uint8_t crc = 0x00;
-    uint8_t i, j;
-    uint8_t bitMask = 1 << 7;
-    for (i = 0; i < len; i++) 
-    {
-      crc ^= data[i];
-      for (j = 0; j < 8; j++) 
-      {
-        if ((crc & bitMask) != 0)
-          crc = (uint8_t)((crc << 1) ^ 0x97);
-        else
-          crc <<= 1;
-      }
-    }
-    crc = crc ^ 0x00;
-    return crc;
-}
 
 /**************************************************************************//**
  * Application Init.
@@ -191,36 +81,13 @@ SL_WEAK void app_init(void)
   // Put your additional application init code here!                         //
   // This is called once during start-up.                                    //
   /////////////////////////////////////////////////////////////////////////////
-//  Ecode_t ecode;
-  uint32_t numberOfObjects;
-  unsigned char data1[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-  unsigned char data2[] = { 11, 12, 13, 14, 15, 17, 18, 19, 20 };
-  uint32_t objectType;
-  size_t dataLen1;
-  Ecode_t status;
 
-  status = nvm3_open(nvm3_defaultHandle, nvm3_defaultInit);
-  numberOfObjects = nvm3_countObjects(nvm3_defaultHandle);
-  if (numberOfObjects < 2)
-  {
-    nvm3_writeData(nvm3_defaultHandle, 10, data1, sizeof(data1));
-    nvm3_writeData(nvm3_defaultHandle, 11, data2, sizeof(data2));
-  }
-  nvm3_getObjectInfo(nvm3_defaultHandle, 11, &objectType, &dataLen1);
-  if (objectType == NVM3_OBJECTTYPE_DATA)
-  {
-    nvm3_readData(nvm3_defaultHandle, 11, data1, dataLen1);
-  }
-  sl_app_log("Status %02X  %4x\n", status, numberOfObjects);
 
 }
 
 static uint32_t timer = 0;
 static uint32_t time_stop_scanner = 0;
 static uint32_t time_advertise = 0;
-
-
-
 
 
 
@@ -235,50 +102,9 @@ SL_WEAK void app_process_action(void)
   // Do not call blocking functions from here!                               //
   /////////////////////////////////////////////////////////////////////////////
   sl_status_t sc;
-  Ecode_t ecode;
-  static unsigned char data1[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-  static unsigned char data2[] = { 11, 12, 13, 14, 15, 17, 18, 19, 20 };
-  sl_simple_button_poll_step(&simple_btn0_context);
-  if ( simple_btn0_context.history )
-  {
-      if ( transfer_complete )
-      {
-          ecode = SPIDRV_MTransfer(SPI_HANDLE, data1, data2, 10, transfer_callback);
-          EFM_ASSERT(ecode == ECODE_OK);
-      }
-//      sc = sl_bt_advertiser_start(
-//        advertising_set_handle,
-//        advertiser_general_discoverable,
-//        advertiser_connectable_scannable);
-//      sl_app_assert(sc == SL_STATUS_OK,
-//                    "[E: 0x%04x] Failed to start advertising\n",
-//                    (int)sc);
 
-#ifdef QUUPPA_MODE
-      static uint8_t counter = 0;
-      // Update pauload section of the Quuppa Data Packet
-      quuppaDataPacket[QUUPPA_DATA_START_INDEX] = counter++;
-
-      // Send Quuppa Data packet
-      sc = sl_bt_advertiser_set_data(advertising_set_handle,
-                                       0,
-                                       sizeof(quuppaDataPacket),
-                                       quuppaDataPacket);
-#else
-      sc = sl_bt_advertiser_set_data(advertising_set_handle,
-                                       0,
-                                       sizeof(customAdv),
-                                       customAdv);
-#endif
-      if ( sc == SL_STATUS_OK )
-      {
-          customAdv[5]++;
-      }
-      simple_btn0_context.history = 0;
-  }
 
 /*
-
   timer++;
 
   if ((time_stop_scanner > 0) && (time_stop_scanner <= timer))
@@ -310,7 +136,7 @@ SL_WEAK void app_process_action(void)
 }
 
 
-
+/*
 void start_scanner(void)
 {
   sl_status_t sc;
@@ -352,8 +178,7 @@ void start_scanner(void)
   app_log("Start scanning\n");
   app_assert_status(sc);
 }
-
-
+*/
 
 
 void startADV(void)
@@ -457,24 +282,12 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
                     "[E: 0x%04x] Failed to set advertising timing\n",
                     (int)sc);
 
-#ifdef QUUPPA_MODE
-      // Update Quuppa CRC Index
-      quuppaDFPacket [QUUPPA_CRC_INDEX] = crc8(
-            &quuppaDFPacket[QUUPPA_CRC_START_INDEX],
-            QUUPPA_CRC_END_INDEX - QUUPPA_CRC_START_INDEX);
 
-      // Start Quuppa DF adv
-      sc = sl_bt_advertiser_set_data(advertising_set_handle,
-                                     0,
-                                     sizeof(quuppaDFPacket),
-                                     quuppaDFPacket);
-#else
       // Start general advertising and enable connections.
       sc = sl_bt_advertiser_set_data(advertising_set_handle,
                                      0,
                                      sizeof(customAdv),
                                      customAdv);
-#endif
       startADV();
 
       break;
@@ -484,32 +297,6 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
     // This event indicates that a new connection was opened.
     case sl_bt_evt_connection_opened_id:
       sl_app_log("Connected: %d\n", evt->data.evt_connection_opened.connection);
-      /*sl_app_log("Client address: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                 evt->data.evt_connection_opened.address.addr[5],
-                 evt->data.evt_connection_opened.address.addr[4],
-                 evt->data.evt_connection_opened.address.addr[3],
-                 evt->data.evt_connection_opened.address.addr[2],
-                 evt->data.evt_connection_opened.address.addr[1],
-                 evt->data.evt_connection_opened.address.addr[0]);
-                 */
-      connection_count++;
-
-      // When sending notifications we need the connection handle.  Capture it here
-      g_lab4Connection = evt->data.evt_connection_opened.connection;
-
-      // Continue advertising if the stack allows further connections.
-      /*
-      if (connection_count < 1) { // SL_BT_CONFIG_MAX_CONNECTIONS
-        sc = sl_bt_advertiser_start(
-          advertising_set_handle,
-          advertiser_user_data, //advertiser_general_discoverable,
-          advertiser_connectable_scannable);
-        sl_app_assert(sc == SL_STATUS_OK,
-                      "[E: 0x%04x] Failed to start advertising\n",
-                      (int)sc);
-        sl_app_log("Continue advertising\n");
-      }
-      */
       break;
 
     // -------------------------------
@@ -519,38 +306,19 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
                  evt->data.evt_connection_closed.connection,
                  evt->data.evt_connection_closed.reason);
 
-      connection_count--;
-
       startADV();
       break;
+
 
     ///////////////////////////////////////////////////////////////////////////
     // Add additional event handlers here as your application requires!      //
     ///////////////////////////////////////////////////////////////////////////
 
     case sl_bt_evt_system_external_signal_id:
-      if (notifyEnabled) {
-          if (evt->data.evt_system_external_signal.extsignals == 1)  // 1 = BTN0
-          {
-              notification_data[0] = (uint8_t)simple_btn0_context.history;
-              //simple_btn0_context.history = 0;
-
-              // send number of button presses
-              sc = sl_bt_gatt_server_send_characteristic_notification(
-                      g_lab4Connection, gattdb_BTN, sizeof(notification_data),
-                      notification_data, &notification_len);
-          }
-      }
       break;
+
+
     case  sl_bt_evt_gatt_server_characteristic_status_id:
-      if ((evt->data.evt_gatt_server_characteristic_status.characteristic == gattdb_BTN)
-           && (evt->data.evt_gatt_server_characteristic_status.status_flags == 0x01))
-      {
-          if (evt->data.evt_gatt_server_characteristic_status.client_config_flags == 0x00)
-              notifyEnabled = false;
-          else
-              notifyEnabled = true;
-      }
       break;
 
 
@@ -560,34 +328,26 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
                evt->data.evt_gatt_server_attribute_value.value.len,
                evt->data.evt_gatt_server_user_write_request.characteristic);
 
-      if (evt->data.evt_gatt_server_user_write_request.characteristic == gattdb_LED) {
-
+      if (evt->data.evt_gatt_server_user_write_request.characteristic == gattdb_LED)
+      {
           sl_bt_gatt_server_send_user_write_response(
-            evt->data.evt_gatt_server_user_write_request.connection,
-            gattdb_LED, SL_STATUS_OK);
+              evt->data.evt_gatt_server_user_write_request.connection,
+              gattdb_LED, SL_STATUS_OK);
 
           app_log ("ACK sent\n", evt->data.evt_gatt_server_attribute_value.value.len);
 
-
-         // Write user supplied value to LEDs.
-         if (evt->data.evt_gatt_server_attribute_value.value.data[0]) {
-
-             //This is the use of the Simple LED component
+          // Light the LED, based on the 1st byte of the message
+          if (evt->data.evt_gatt_server_attribute_value.value.data[0])
              sl_led_turn_on(&sl_led_led0);
-         }
-         else {
-             //This is the use of the Simple LED component
+          else
              sl_led_turn_off(&sl_led_led0);
-         }
 
+          // if message if more then 1 byte, print it
+          if (evt->data.evt_gatt_server_attribute_value.value.len > 1)
+            print_data(&evt->data.evt_gatt_server_attribute_value.value);
 
-         if (evt->data.evt_gatt_server_attribute_value.value.len > 1)
-           {
-             print_data(&evt->data.evt_gatt_server_attribute_value.value);
-           }
-
-       }
-       break;
+      }
+      break;
 
 
     // -------------------------------

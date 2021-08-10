@@ -28,15 +28,6 @@
  *
  ******************************************************************************/
 #include "em_common.h"
-//#include "em_device.h"
-//#include "em_chip.h"
-//#include "em_core.h"
-#include "em_cmu.h"
-//#include "em_emu.h"
-#include "em_rtcc.h"
-//#include "em_letimer.h"
-
-
 #include "app_log.h"
 #include "app_assert.h"
 #include "sl_bluetooth.h"
@@ -108,16 +99,14 @@ SL_WEAK void app_process_action(void)
       //print_enumerated_tags();
   }
 
-/*
-  if ((seconds > flip_time) && (!flip_done) && (seconds > 5))
-  {
-      //flip_done = 1;
-      flip_time = seconds + 5;
-
-      flip();
-      flip_index += 1;
-  }
-*/
+//  if ((seconds > flip_time) && (!flip_done) && (seconds > 5))
+//  {
+//      //flip_done = 1;
+//      flip_time = seconds + 5;
+//
+//      flip();
+//      flip_index += 1;
+//  }
 
   // Call flip state machine
   flip_process_action();
@@ -140,8 +129,8 @@ void sl_button_on_change(const sl_button_t *handle)
     app_log_time("BTN %d\n", ctxt->pin);
     if (ctxt->pin == 0)
     {
-      flip();
-      flip_index += 1;
+        flip();
+        flip_index += 1;
     }
     else
     {
@@ -258,18 +247,10 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
                    address.addr[1],
                    address.addr[0]);
 
-#define SCAN_INTERVAL                 1600   // * 0.625ms = 1 sec
-#define SCAN_WINDOW                   1600   // * 0.625ms = 1 sec
-#define SCAN_PASSIVE                  0
-#define SCAN_ACTIVE                   1
-
-#define CONN_INTERVAL_MIN             6    // * 1.25 ms = 7.5 ms
-#define CONN_INTERVAL_MAX             12    // * 1.25 ms = 7.5 ms
-#define CONN_SLAVE_LATENCY            0    //no latency
-#define CONN_TIMEOUT                  1000  //1000ms
-#define CONN_MIN_CE_LENGTH            0
-#define CONN_MAX_CE_LENGTH            0xffff
-
+      #define SCAN_INTERVAL                 1600   // * 0.625ms = 1 sec
+      #define SCAN_WINDOW                   1600   // * 0.625ms = 1 sec
+      #define SCAN_PASSIVE                  0
+      #define SCAN_ACTIVE                   1
 
       // Set passive scanning on 1Mb PHY
       sc = sl_bt_scanner_set_mode(gap_1m_phy, SCAN_PASSIVE);
@@ -284,6 +265,12 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
                  "[E: 0x%04x] Failed to set scanner timing\n",
                  (int)sc);
 
+      #define CONN_INTERVAL_MIN             6    // * 1.25 ms = 7.5 ms
+      #define CONN_INTERVAL_MAX             12    // * 1.25 ms = 7.5 ms
+      #define CONN_SLAVE_LATENCY            0    //no latency
+      #define CONN_TIMEOUT                  1000  //1000ms
+      #define CONN_MIN_CE_LENGTH            0
+      #define CONN_MAX_CE_LENGTH            0xffff
 
       // Set the default connection parameters for subsequent connections
       sc = sl_bt_connection_set_default_parameters(CONN_INTERVAL_MIN,
@@ -338,8 +325,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
                          );
 
 
-          //write_data(conn);
-          sc = sl_bt_connection_close(conn->connection_handle);
+          write_data(conn);
 
         }
         else if (conn->connection_state == TAG_TIMEOUT)

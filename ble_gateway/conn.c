@@ -249,8 +249,6 @@ void flip_process_action(void)
   sl_status_t sc;
 
 
-
-
 #ifndef NEED_ACK
   if (stack_state == STACK_WRITING)
   {
@@ -268,10 +266,6 @@ void flip_process_action(void)
       }
   }
 #endif
-
-
-
-
 
 
   // See if current connection timed out

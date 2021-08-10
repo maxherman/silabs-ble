@@ -1,0 +1,15 @@
+<gatt>
+  <!--Constant Tone Extension Service-->
+  <service advertise="true" id="cte" name="Constant Tone Extension Service" requirement="mandatory" sourceId="" type="primary" uuid="0ed03664-073f-f296-07ad-a8b781966950" instance_id="cte_s1">
+    <informativeText>The Constant Tone Extension Service allows a client to configure the Constant Tone Extension transmitted by a server, both on a connection and on the advertising channels. WARNING! The Bluetooth SIG has not adopted the CTE Service Specification yet, the UUIDs are subject of change.</informativeText>
+    
+    <!--Constant Tone Extension Enable-->
+    <characteristic const="false" id="cte_enable" name="Constant Tone Extension Enable" sourceId="" uuid="0d6a0b72-57d6-101c-cdd6-14a0c9fbc4dd">
+      <informativeText/>
+      <value length="1" type="user" variable_length="false"/>
+      <properties>
+        <write authenticated="false" bonded="false" encrypted="false"/>
+      </properties>
+    </characteristic>
+  </service>
+</gatt>
